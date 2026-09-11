@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b101d" />
+      <stop offset="50%" stop-color="#05070d" />
+      <stop offset="100%" stop-color="#020306" />
+    </linearGradient>
+    <linearGradient id="cyanNeon" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f2fe" />
+      <stop offset="100%" stop-color="#4facfe" />
+    </linearGradient>
+    <linearGradient id="liveRed" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff0844" />
+      <stop offset="100%" stop-color="#ffb199" />
+    </linearGradient>
+    <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f2fe" stop-opacity="0.8" />
+      <stop offset="50%" stop-color="#7000ff" stop-opacity="0.5" />
+      <stop offset="100%" stop-color="#00f2fe" stop-opacity="0.1" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+    <filter id="cyanGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background Rounded Shield / Squircle -->
+  <rect x="16" y="16" width="480" height="480" rx="120" fill="url(#bgGrad)" stroke="url(#ringGrad)" stroke-width="8" />
+
+  <!-- Inner Ambient Glow Ring -->
+  <circle cx="256" cy="256" r="190" fill="none" stroke="url(#cyanNeon)" stroke-width="2" stroke-dasharray="8 12" opacity="0.3" />
+  <circle cx="256" cy="256" r="160" fill="#00f2fe" fill-opacity="0.03" />
+
+  <!-- Stylized Modern 'A' & 'R' Play Stream Wings -->
+  <!-- Left Wing (A) -->
+  <path d="M150 360 L230 140 C234 130 248 130 252 140 L280 216 L230 310 L170 310 L150 360 Z" fill="url(#cyanNeon)" opacity="0.9" filter="url(#cyanGlow)" />
+  
+  <!-- Right Wing / Live Triangle Stream Accent (R / Play Stream) -->
+  <path d="M236 156 L350 250 C362 260 362 276 350 286 L254 364 C242 374 224 366 224 350 L224 170 C224 154 242 146 254 156 Z" fill="url(#cyanNeon)" filter="url(#glow)" />
+
+  <!-- Center Core Prism Play Arrow -->
+  <polygon points="250,210 330,268 250,326" fill="#ffffff" />
+
+  <!-- Live Broadcast Signal Waves -->
+  <path d="M370 190 C395 210 410 238 410 268 C410 298 395 326 370 346" fill="none" stroke="url(#cyanNeon)" stroke-width="12" stroke-linecap="round" opacity="0.75" />
+  <path d="M410 160 C445 190 465 228 465 268 C465 308 445 346 410 376" fill="none" stroke="url(#cyanNeon)" stroke-width="10" stroke-linecap="round" opacity="0.4" />
+
+  <!-- Live Red Pulse Indicator Dot -->
+  <circle cx="360" cy="150" r="16" fill="url(#liveRed)" filter="url(#glow)" />
+  <circle cx="360" cy="150" r="8" fill="#ffffff" />
+</svg>

@@ -1,0 +1,13 @@
+# Apple Design Skill
+
+When reviewing UI/UX designs or writing frontend components, adhere to the Apple Design Guidelines in:
+- `.skills/apple-design/SKILL.md` (Main review framework)
+- `.skills/apple-design/references/hig-lookup.md` (Topic routing)
+- `.skills/apple-design/references/hig/*.md` (53 HIG design documents)
+
+Core focus:
+- Minimum 44x44px touch targets
+- WCAG AA contrast ratios
+- Mathematical border radius nesting: Inner = Outer - Padding
+- Liquid glass: backdrop-blur with subtle borders and balanced opacity
+- Responsive mobile & desktop typography scales

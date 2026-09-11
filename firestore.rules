@@ -1,0 +1,285 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------
+    // Helpers
+    // -------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        ('email' in request.auth.token && request.auth.token.email != null && request.auth.token.email.lower() == 'kcaarun10@gmail.com') ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidId(id) {
+      return id is string &&
+             id.size() <= 128 &&
+             id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // -------------------------
+    // Match validation
+    // -------------------------
+    function isValidMatch(data) {
+      return data.keys().hasAll(['team1', 'team2', 'category', 'channels', 'status', 'startTime']) &&
+             data.team1 is string && data.team1.size() <= 100 &&
+             data.team2 is string && data.team2.size() <= 100 &&
+             data.category is string && data.category.size() <= 50 &&
+             data.status in ['upcoming', 'live', 'finished', 'ended'] &&
+             data.startTime is string &&
+             data.channels is list && data.channels.size() <= 20 &&
+             (
+               data.channels.size() == 0 ||
+               (
+                 data.channels[0].name is string &&
+                 data.channels[0].name.size() <= 100 &&
+                 data.channels[0].url is string &&
+                 data.channels[0].url.size() <= 4000
+               )
+             ) &&
+             (!('endTime' in data) || (data.endTime is string && data.endTime.size() <= 100)) &&
+             (!('durationMinutes' in data) || (data.durationMinutes is number && data.durationMinutes >= 0 && data.durationMinutes <= 10080)) &&
+             (!('autoEndMinutes' in data) || (data.autoEndMinutes is number && data.autoEndMinutes >= 0 && data.autoEndMinutes <= 10080)) &&
+             (!('autoEndAt' in data) || (data.autoEndAt is string && data.autoEndAt.size() <= 100)) &&
+             (!('autoEndEnabled' in data) || (data.autoEndEnabled is bool)) &&
+             (!('team1Logo' in data) || (data.team1Logo is string && data.team1Logo.size() <= 2000)) &&
+             (!('team2Logo' in data) || (data.team2Logo is string && data.team2Logo.size() <= 2000)) &&
+             (!('tournament' in data) || (data.tournament is string && data.tournament.size() <= 200)) &&
+             (!('tournamentLogo' in data) || (data.tournamentLogo is string && data.tournamentLogo.size() <= 2000)) &&
+             (!('league' in data) || (data.league is string && data.league.size() <= 200)) &&
+             (!('leagueLogo' in data) || (data.leagueLogo is string && data.leagueLogo.size() <= 2000)) &&
+             (!('eventName' in data) || (data.eventName is string && data.eventName.size() <= 200)) &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 2000));
+    }
+
+    // -------------------------
+    // Team validation
+    // -------------------------
+    function isValidTeam(data) {
+      return data.keys().hasAll(['name', 'logo']) &&
+             data.name is string && data.name.size() <= 100 &&
+             data.logo is string && data.logo.size() <= 2000 &&
+             (!('category' in data) || (data.category is string && data.category.size() <= 50)) &&
+             (!('domain' in data) || (data.domain is string && data.domain.size() <= 100));
+    }
+
+    // -------------------------
+    // League validation
+    // -------------------------
+    function isValidLeague(data) {
+      return data.keys().hasAll(['name', 'logo']) &&
+             data.name is string && data.name.size() <= 150 &&
+             data.logo is string && data.logo.size() <= 2000 &&
+             (!('category' in data) || (data.category is string && data.category.size() <= 50)) &&
+             (!('country' in data) || (data.country is string && data.country.size() <= 100));
+    }
+
+    // -------------------------
+    // Channel validation
+    // -------------------------
+    function isValidChannel(data) {
+      return data.keys().hasAll(['name', 'url', 'group']) &&
+             data.name is string && data.name.size() <= 100 &&
+             data.url is string && data.url.size() <= 4000 &&
+             data.group is string && data.group.size() <= 100 &&
+             (!('logo' in data) || data.logo == null || (data.logo is string && data.logo.size() <= 2000)) &&
+             (!('userAgent' in data) || data.userAgent == null || (data.userAgent is string && data.userAgent.size() <= 1000)) &&
+             (!('referrer' in data) || data.referrer == null || (data.referrer is string && data.referrer.size() <= 1000)) &&
+             (!('createdAt' in data) || data.createdAt is timestamp || data.createdAt is string) &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp || data.updatedAt is string);
+    }
+
+    // -------------------------
+    // Match Request validation
+    // -------------------------
+    function isValidMatchRequest(data) {
+      return ('matchTitle' in data) &&
+             data.matchTitle is string &&
+             data.matchTitle.size() > 0 &&
+             data.matchTitle.size() <= 300 &&
+             (!('category' in data) || (data.category is string && data.category.size() <= 100)) &&
+             (!('status' in data) || (data.status in ['pending', 'added', 'dismissed'])) &&
+             (!('eventDate' in data) || data.eventDate == null || (data.eventDate is string && data.eventDate.size() <= 200)) &&
+             (!('notes' in data) || data.notes == null || (data.notes is string && data.notes.size() <= 2000)) &&
+             (!('requesterName' in data) || data.requesterName == null || (data.requesterName is string && data.requesterName.size() <= 200));
+    }
+
+    // -------------------------
+    // Chat Message validation
+    // -------------------------
+    function isValidChatMessage(data) {
+      return data.keys().hasAll(['matchId', 'text', 'username', 'userId']) &&
+             data.matchId is string && data.matchId.size() > 0 && data.matchId.size() <= 200 &&
+             data.text is string && data.text.size() > 0 && data.text.size() <= 1000 &&
+             data.username is string && data.username.size() > 0 && data.username.size() <= 100 &&
+             data.userId is string && data.userId.size() > 0 && data.userId.size() <= 200 &&
+             (!('userColor' in data) || data.userColor == null || (data.userColor is string && data.userColor.size() <= 60)) &&
+             (!('userBadge' in data) || data.userBadge == null || (data.userBadge is string && data.userBadge.size() <= 60)) &&
+             (!('createdAt' in data) || data.createdAt == null || (data.createdAt is string && data.createdAt.size() <= 100)) &&
+             (!('timestamp' in data) || data.timestamp == null || (data.timestamp is number));
+    }
+
+    // -------------------------
+    // Announcement validation
+    // -------------------------
+    function isValidAnnouncement(data) {
+      return ('text' in data) &&
+             data.text is string && data.text.size() > 0 && data.text.size() <= 1000 &&
+             ('isActive' in data) && data.isActive is bool &&
+             (!('linkUrl' in data) || data.linkUrl == null || (data.linkUrl is string && data.linkUrl.size() <= 2000)) &&
+             (!('badge' in data) || data.badge == null || (data.badge is string && data.badge.size() <= 50)) &&
+             (!('badgeColor' in data) || data.badgeColor == null || (data.badgeColor is string && data.badgeColor.size() <= 50)) &&
+             (!('priority' in data) || data.priority == null || (data.priority is number)) &&
+             (!('openInNewTab' in data) || data.openInNewTab == null || (data.openInNewTab is bool)) &&
+             (!('createdAt' in data) || data.createdAt is timestamp || data.createdAt is string) &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp || data.updatedAt is string);
+    }
+
+    // -------------------------
+    // Site Notice validation
+    // -------------------------
+    function isValidSiteNotice(data) {
+      return ('enabled' in data) && data.enabled is bool &&
+             ('title' in data) && data.title is string && data.title.size() <= 300 &&
+             (!('message' in data) || data.message == null || (data.message is string && data.message.size() <= 3000)) &&
+             (!('bannerImageUrl' in data) || data.bannerImageUrl == null || (data.bannerImageUrl is string && data.bannerImageUrl.size() <= 2000)) &&
+             (!('mainRedirectUrl' in data) || data.mainRedirectUrl == null || (data.mainRedirectUrl is string && data.mainRedirectUrl.size() <= 2000)) &&
+             (!('buttonText' in data) || data.buttonText == null || (data.buttonText is string && data.buttonText.size() <= 100)) &&
+             (!('adImageUrl' in data) || data.adImageUrl == null || (data.adImageUrl is string && data.adImageUrl.size() <= 2000)) &&
+             (!('adRedirectUrl' in data) || data.adRedirectUrl == null || (data.adRedirectUrl is string && data.adRedirectUrl.size() <= 2000)) &&
+             (!('showFrequency' in data) || data.showFrequency == null || (data.showFrequency is string && data.showFrequency.size() <= 50)) &&
+             (!('autoOpenDelay' in data) || data.autoOpenDelay == null || (data.autoOpenDelay is number)) &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp || data.updatedAt is string);
+    }
+
+    // -------------------------
+    // Matches collection
+    // -------------------------
+    match /matches/{matchId} {
+      allow read: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------
+    // Match Requests collection
+    // -------------------------
+    match /matchRequests/{requestId} {
+      allow read: if true;
+      allow create: if isValidMatchRequest(incoming());
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------
+    // Leagues collection
+    // -------------------------
+    match /leagues/{leagueId} {
+      allow read: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------
+    // Admins collection
+    // -------------------------
+    match /admins/{userId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------
+    // Teams collection
+    // -------------------------
+    match /teams/{teamId} {
+      allow read: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------
+    // Channels collection
+    // -------------------------
+    match /channels/{channelId} {
+      allow read: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------
+    // Live Presence Heartbeats
+    // -------------------------
+    match /livePresence/{presenceId} {
+      allow read: if true;
+      allow create, update: if request.resource.data.targetId is string &&
+                               request.resource.data.targetId.size() <= 200 &&
+                               request.resource.data.clientId is string &&
+                               request.resource.data.clientId.size() <= 200;
+      allow delete: if true;
+    }
+
+    // -------------------------
+    // Real-Time Live Chat Messages
+    // -------------------------
+    match /liveChat/{messageId} {
+      allow read: if true;
+      allow create: if isValidChatMessage(incoming());
+      allow update, delete: if isAdmin();
+    }
+
+    // -------------------------
+    // Announcements collection
+    // -------------------------
+    match /announcements/{announcementId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidAnnouncement(incoming());
+      allow update: if isAdmin() && isValidAnnouncement(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------
+    // Site Config & Notices collection
+    // -------------------------
+    match /siteConfig/{configId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidSiteNotice(incoming());
+      allow update: if isAdmin() && isValidSiteNotice(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------
+    // Subcollection fallback for matches
+    // -------------------------
+    match /matches/{matchId}/messages/{messageId} {
+      allow read: if true;
+      allow create: if isValidChatMessage(incoming());
+      allow update, delete: if isAdmin();
+    }
+
+    // -------------------------
+    // Connection health check
+    // -------------------------
+    match /test/{docId} {
+      allow read: if true;
+    }
+  }
+}

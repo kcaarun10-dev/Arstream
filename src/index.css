@@ -1,0 +1,400 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "SF Pro", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+  
+  --color-app-bg: #000000;
+  --color-card-bg: rgba(26, 26, 36, 0.6);
+  --color-card-surface: rgba(36, 36, 48, 0.5);
+  --color-card-border: rgba(255, 255, 255, 0.08);
+  --color-accent: #0A84FF;
+  --color-accent-blue: #0A84FF;
+  --color-accent-cyan: #30D158;
+  --color-accent-red: #FF453A;
+  --color-text-dim: rgba(255, 255, 255, 0.64);
+}
+
+@layer base {
+  * {
+    border-color: rgba(255, 255, 255, 0.08);
+    -webkit-tap-highlight-color: transparent;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    touch-action: manipulation;
+    letter-spacing: -0.011em;
+  }
+  body {
+    background-color: #000000;
+    color: #F5F5F7;
+    font-family: var(--font-sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+    overscroll-behavior-y: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Optimize touch responsiveness for buttons and interactive controls */
+  button, a, input, select, [role="button"] {
+    touch-action: manipulation;
+  }
+}
+
+/* Apple Touch Friendly Utilities */
+.touch-target-44 {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.touch-pan-x-momentum {
+  touch-action: pan-x;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.pb-dock-content {
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* Apple Obsidian & VisionOS Canvas Background */
+.ambient-cinema-bg {
+  position: relative;
+  background-color: #04060A;
+  contain: paint;
+}
+
+/* Stadium micro mesh pattern */
+.stadium-grid-pattern {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* Ambient floating light animations */
+@keyframes ambientDrift1 {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate3d(40px, -25px, 0) scale(1.12);
+    opacity: 1;
+  }
+}
+
+@keyframes ambientDrift2 {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: translate3d(-35px, 30px, 0) scale(1.15);
+    opacity: 0.95;
+  }
+}
+
+@keyframes ambientDrift3 {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translate3d(30px, 35px, 0) scale(1.08);
+    opacity: 0.9;
+  }
+}
+
+.animate-ambient-1 {
+  animation: ambientDrift1 20s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.animate-ambient-2 {
+  animation: ambientDrift2 24s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.animate-ambient-3 {
+  animation: ambientDrift3 28s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+/* Authentic Apple HIG Liquid Glass Materials */
+.liquid-glass,
+.apple-glass {
+  background: rgba(28, 28, 30, 0.68);
+  backdrop-filter: blur(25px) saturate(180%);
+  -webkit-backdrop-filter: blur(25px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 
+    0 10px 30px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+}
+
+.liquid-glass-subtle,
+.apple-glass-clear {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px) saturate(190%);
+  -webkit-backdrop-filter: blur(20px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+}
+
+.liquid-glass-interactive,
+.apple-card {
+  background: rgba(28, 28, 30, 0.52);
+  backdrop-filter: blur(20px) saturate(170%);
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 
+    0 4px 20px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.liquid-glass-interactive:hover,
+.apple-card:hover {
+  background: rgba(38, 38, 42, 0.72);
+  border-color: rgba(255, 255, 255, 0.16);
+  transform: translateY(-2px);
+  box-shadow: 
+    0 12px 36px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.18);
+}
+
+/* Apple Segmented Control Container */
+.apple-segmented-track {
+  background: rgba(118, 118, 128, 0.24);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 9999px;
+  padding: 3px;
+  border: 0.5px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Apple Primary Action Button */
+.apple-btn-primary {
+  background: #FFFFFF;
+  color: #000000;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  border-radius: 9999px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 14px rgba(255, 255, 255, 0.15);
+}
+
+.apple-btn-primary:hover {
+  background: #ECECEE;
+  transform: scale(1.02);
+  box-shadow: 0 6px 20px rgba(255, 255, 255, 0.22);
+}
+
+.apple-btn-primary:active {
+  transform: scale(0.97);
+}
+
+/* Apple Blue CTA Pill */
+.apple-btn-accent {
+  background: #0A84FF;
+  color: #FFFFFF;
+  font-weight: 600;
+  border-radius: 9999px;
+  box-shadow: 0 4px 16px rgba(10, 132, 255, 0.35);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.apple-btn-accent:hover {
+  background: #0077ED;
+  transform: scale(1.02);
+  box-shadow: 0 6px 22px rgba(10, 132, 255, 0.45);
+}
+
+.apple-btn-accent:active {
+  transform: scale(0.97);
+}
+
+/* Custom Seek Bar & Volume Range Sliders */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 14px;
+  width: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid #06b6d4;
+  box-shadow: 0 0 8px rgba(6, 182, 212, 0.5), 0 2px 4px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  margin-top: -5px;
+  transition: transform 0.15s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.3);
+}
+
+input[type="range"]::-moz-range-thumb {
+  height: 14px;
+  width: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid #06b6d4;
+  box-shadow: 0 0 8px rgba(6, 182, 212, 0.5);
+  cursor: pointer;
+}
+
+/* Scrollbars */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Tooltip & Dropdowns */
+.glass-tooltip {
+  background: rgba(11, 15, 25, 0.95);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.7);
+}
+
+/* ==========================================================================
+   Apple AI / Apple Intelligence Specular Luminous Design System
+   ========================================================================== */
+
+@keyframes appleAIAura {
+  0%, 100% {
+    background-position: 0% 50%;
+    opacity: 0.85;
+  }
+  50% {
+    background-position: 100% 50%;
+    opacity: 1;
+  }
+}
+
+@keyframes appleAIShimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes appleAIPulse {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(0, 242, 254, 0.2), 0 0 30px rgba(168, 85, 247, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(0, 242, 254, 0.4), 0 0 50px rgba(168, 85, 247, 0.3);
+  }
+}
+
+/* Apple Intelligence Iridescent Glowing Border */
+.apple-ai-border {
+  position: relative;
+  background-clip: padding-box;
+}
+
+.apple-ai-border::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(6, 182, 212, 0.6) 0%,
+    rgba(168, 85, 247, 0.6) 35%,
+    rgba(236, 72, 153, 0.5) 70%,
+    rgba(59, 130, 246, 0.6) 100%
+  );
+  background-size: 200% 200%;
+  animation: appleAIAura 6s ease infinite;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Apple AI Glow Container */
+.apple-ai-card {
+  background: rgba(14, 18, 28, 0.72);
+  backdrop-filter: blur(30px) saturate(190%);
+  -webkit-backdrop-filter: blur(30px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.16);
+  position: relative;
+}
+
+/* Apple AI Floating Capsule Button */
+.apple-ai-pill {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.04) 100%);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.4),
+    0 0 20px rgba(0, 242, 254, 0.15),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.25);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.apple-ai-pill:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.08) 100%);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+  box-shadow:
+    0 14px 40px rgba(0, 0, 0, 0.5),
+    0 0 30px rgba(0, 242, 254, 0.3),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.35);
+}
+
+.apple-ai-badge {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.18) 0%, rgba(168, 85, 247, 0.18) 100%);
+  border: 1px solid rgba(0, 242, 254, 0.35);
+  color: #a5f3fc;
+  box-shadow: 0 0 14px rgba(6, 182, 212, 0.2);
+}
+
+/* Smooth Infinite Marquee Scrolling for Top Announcements */
+@keyframes marqueeScroll {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.animate-marquee-infinite {
+  display: flex;
+  width: max-content;
+  animation: marqueeScroll 32s linear infinite;
+  will-change: transform;
+}
+
+.animate-marquee-infinite:hover,
+.animate-marquee-infinite:focus-within {
+  animation-play-state: paused;
+}
+
+

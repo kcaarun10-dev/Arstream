@@ -1,0 +1,195 @@
+{
+  "entities": {
+    "Match": {
+      "title": "Match",
+      "description": "A sporting event with real-time stream links",
+      "type": "object",
+      "properties": {
+        "team1": { "type": "string" },
+        "team1Logo": { "type": "string" },
+        "team2": { "type": "string" },
+        "team2Logo": { "type": "string" },
+        "category": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "durationMinutes": { "type": "number" },
+        "autoEndMinutes": { "type": "number" },
+        "autoEndAt": { "type": "string" },
+        "autoEndEnabled": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["upcoming", "live", "finished", "ended"] },
+        "channels": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "url": { "type": "string" },
+              "userAgent": { "type": "string" },
+              "referrer": { "type": "string" }
+            }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["team1", "team2", "category", "startTime", "status", "channels"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "User with management privileges",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["superadmin", "editor"] }
+      },
+      "required": ["email", "role"]
+    },
+    "League": {
+      "title": "League",
+      "description": "Sporting tournament, league, or event information and logo badge",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "logo": { "type": "string" },
+        "category": { "type": "string" },
+        "country": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "logo"]
+    },
+    "Channel": {
+      "title": "Channel",
+      "description": "Custom IPTV live television channel or stream link",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "logo": { "type": "string" },
+        "group": { "type": "string" },
+        "url": { "type": "string" },
+        "userAgent": { "type": "string" },
+        "referrer": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "url", "group"]
+    },
+    "MatchRequest": {
+      "title": "MatchRequest",
+      "description": "User requested sports fixture or broadcast stream",
+      "type": "object",
+      "properties": {
+        "matchTitle": { "type": "string" },
+        "category": { "type": "string" },
+        "eventDate": { "type": "string" },
+        "notes": { "type": "string" },
+        "requesterName": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "added", "dismissed"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["matchTitle", "category", "status"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Real-time chat message sent by a live stream viewer",
+      "type": "object",
+      "properties": {
+        "matchId": { "type": "string" },
+        "text": { "type": "string" },
+        "username": { "type": "string" },
+        "userId": { "type": "string" },
+        "userColor": { "type": "string" },
+        "userBadge": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["matchId", "text", "username", "userId"]
+    },
+    "LivePresence": {
+      "title": "LivePresence",
+      "description": "Real-time active viewer presence heartbeat per stream session",
+      "type": "object",
+      "properties": {
+        "targetId": { "type": "string" },
+        "clientId": { "type": "string" },
+        "lastSeen": { "type": "string", "format": "date-time" }
+      },
+      "required": ["targetId", "clientId"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "Top scrolling announcement ticker items posted by admin",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "linkUrl": { "type": "string" },
+        "badge": { "type": "string" },
+        "badgeColor": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "openInNewTab": { "type": "boolean" },
+        "priority": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["text", "isActive"]
+    },
+    "SiteNotice": {
+      "title": "SiteNotice",
+      "description": "Notice and banner pop-up shown automatically on web open",
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "bannerImageUrl": { "type": "string" },
+        "mainRedirectUrl": { "type": "string" },
+        "buttonText": { "type": "string" },
+        "adImageUrl": { "type": "string" },
+        "adRedirectUrl": { "type": "string" },
+        "showFrequency": { "type": "string" },
+        "autoOpenDelay": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["enabled", "title", "mainRedirectUrl"]
+    }
+  },
+  "firestore": {
+    "announcements": {
+      "schema": "Announcement",
+      "description": "Admin created announcement banners scrolling at the top of all pages"
+    },
+    "siteConfig": {
+      "schema": "SiteNotice",
+      "description": "Global website configuration including on-open notice and banner ads"
+    },
+    "liveChat": {
+      "schema": "ChatMessage",
+      "description": "Real-time viewer live chat messages for live streams"
+    },
+    "livePresence": {
+      "schema": "LivePresence",
+      "description": "Active real-time viewer heartbeats across all live matches and streams"
+    },
+    "matches": {
+      "schema": "Match",
+      "description": "Collection of sports matches and their stream links"
+    },
+    "matchRequests": {
+      "schema": "MatchRequest",
+      "description": "User submitted sports match requests"
+    },
+    "leagues": {
+      "schema": "League",
+      "description": "Collection of leagues, tournaments, and event logos"
+    },
+    "channels": {
+      "schema": "Channel",
+      "description": "Collection of custom IPTV channels added by admin"
+    },
+    "admins": {
+      "schema": "Admin",
+      "description": "Authorized administrators"
+    }
+  }
+}

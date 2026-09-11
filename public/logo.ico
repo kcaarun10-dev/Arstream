@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b101d" />
+      <stop offset="50%" stop-color="#05070d" />
+      <stop offset="100%" stop-color="#020306" />
+    </linearGradient>
+    <linearGradient id="cyanNeon3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f2fe" />
+      <stop offset="100%" stop-color="#4facfe" />
+    </linearGradient>
+    <linearGradient id="liveRed3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff0844" />
+      <stop offset="100%" stop-color="#ffb199" />
+    </linearGradient>
+    <linearGradient id="ringGrad3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f2fe" stop-opacity="0.8" />
+      <stop offset="50%" stop-color="#7000ff" stop-opacity="0.5" />
+      <stop offset="100%" stop-color="#00f2fe" stop-opacity="0.1" />
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="120" fill="url(#bgGrad3)" stroke="url(#ringGrad3)" stroke-width="8" />
+  <circle cx="256" cy="256" r="190" fill="none" stroke="url(#cyanNeon3)" stroke-width="2" stroke-dasharray="8 12" opacity="0.3" />
+  <path d="M150 360 L230 140 C234 130 248 130 252 140 L280 216 L230 310 L170 310 L150 360 Z" fill="url(#cyanNeon3)" opacity="0.9" />
+  <path d="M236 156 L350 250 C362 260 362 276 350 286 L254 364 C242 374 224 366 224 350 L224 170 C224 154 242 146 254 156 Z" fill="url(#cyanNeon3)" />
+  <polygon points="250,210 330,268 250,326" fill="#ffffff" />
+  <path d="M370 190 C395 210 410 238 410 268 C410 298 395 326 370 346" fill="none" stroke="url(#cyanNeon3)" stroke-width="12" stroke-linecap="round" opacity="0.75" />
+  <circle cx="360" cy="150" r="16" fill="url(#liveRed3)" />
+  <circle cx="360" cy="150" r="8" fill="#ffffff" />
+</svg>

@@ -1,0 +1,6 @@
+{
+  "name": "AR Stream",
+  "description": "A premium sports streaming experience with real-time match updates, adaptive 4K HLS player, and global IPTV.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
