@@ -1900,6 +1900,262 @@ app.get("/api/streamed/all-streams", async (req, res) => {
   }
 });
 
+// ============================================================
+// 24/7 Automated Streaming System & Background Engine
+// ============================================================
+interface AutoStreamMatch {
+  id: string;
+  streamedId: string;
+  team1: string;
+  team1Logo: string;
+  team2: string;
+  team2Logo: string;
+  category: string;
+  tournament: string;
+  startTime: string;
+  status: "live" | "upcoming" | "finished";
+  popular?: boolean;
+  poster?: string;
+  sources: { source: string; id: string }[];
+  channels: {
+    name: string;
+    url: string;
+    quality?: string;
+    protocol?: string;
+    serverLocation?: string;
+    embedCode?: string;
+  }[];
+  lastResolvedAt: number;
+}
+
+let autoMatchesPool: AutoStreamMatch[] = [];
+let autoSyncStats = {
+  active: true,
+  lastRunTime: 0,
+  totalMatches: 0,
+  liveMatchesCount: 0,
+  totalStreamsResolved: 0,
+  isRunning: false,
+  logs: [] as string[],
+};
+
+function addAutoSyncLog(msg: string) {
+  const timestamp = new Date().toLocaleTimeString();
+  const entry = `[${timestamp}] ${msg}`;
+  autoSyncStats.logs.unshift(entry);
+  if (autoSyncStats.logs.length > 30) {
+    autoSyncStats.logs.pop();
+  }
+  console.log(`[AutoStreamer] ${entry}`);
+}
+
+async function runStreamingAutomation(): Promise<{ count: number; streams: number }> {
+  if (autoSyncStats.isRunning) {
+    return { count: autoMatchesPool.length, streams: autoSyncStats.totalStreamsResolved };
+  }
+
+  autoSyncStats.isRunning = true;
+  addAutoSyncLog("Starting automated streaming ingest & mirror discovery...");
+
+  try {
+    // 1. Fetch live matches and today's matches
+    const [liveData, todayData] = await Promise.allSettled([
+      fetchStreamedWithCache(`${STREAMED_BASE_ORIGIN}/api/matches/live`, 15000),
+      fetchStreamedWithCache(`${STREAMED_BASE_ORIGIN}/api/matches/all-today`, 30000),
+    ]);
+
+    const liveMatches: any[] = liveData.status === "fulfilled" && Array.isArray(liveData.value) ? liveData.value : [];
+    const todayMatches: any[] = todayData.status === "fulfilled" && Array.isArray(todayData.value) ? todayData.value : [];
+
+    // Combine unique matches prioritizing live matches
+    const map = new Map<string, any>();
+    liveMatches.forEach((m) => {
+      if (m.id) map.set(m.id, { ...m, isLiveForced: true });
+    });
+    todayMatches.forEach((m) => {
+      if (m.id && !map.has(m.id)) map.set(m.id, m);
+    });
+
+    const combined = Array.from(map.values());
+    addAutoSyncLog(`Ingested ${combined.length} matches from Streamed.pk (${liveMatches.length} currently live).`);
+
+    // 2. Select top matches to resolve live stream endpoints for:
+    // Prioritize live matches and matches kicking off within 2 hours
+    const now = Date.now();
+    const sorted = combined.sort((a, b) => {
+      const aIsLive = a.isLiveForced || Math.abs(now - a.date) < 2 * 60 * 60 * 1000;
+      const bIsLive = b.isLiveForced || Math.abs(now - b.date) < 2 * 60 * 60 * 1000;
+      if (aIsLive && !bIsLive) return -1;
+      if (!aIsLive && bIsLive) return 1;
+      if (a.popular && !b.popular) return -1;
+      if (!a.popular && b.popular) return 1;
+      return a.date - b.date;
+    });
+
+    // We resolve streams for the active/popular matches (up to 25 concurrently)
+    const matchesToResolve = sorted.slice(0, 25);
+    let resolvedStreamCount = 0;
+
+    const processedList: AutoStreamMatch[] = await Promise.all(
+      matchesToResolve.map(async (item) => {
+        const homeName = item.teams?.home?.name || item.title?.split(" vs ")[0] || "Home Team";
+        const awayName = item.teams?.away?.name || item.title?.split(" vs ")[1] || "Away Team";
+        const homeBadge = item.teams?.home?.badge
+          ? `${STREAMED_BASE_ORIGIN}/api/images/badge/${item.teams.home.badge.replace(/\.webp$/i, "")}.webp`
+          : "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=200&q=80";
+        const awayBadge = item.teams?.away?.badge
+          ? `${STREAMED_BASE_ORIGIN}/api/images/badge/${item.teams.away.badge.replace(/\.webp$/i, "")}.webp`
+          : "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=200&q=80";
+
+        const poster = item.poster
+          ? (item.poster.startsWith("http") ? item.poster : `${STREAMED_BASE_ORIGIN}/api/images/proxy/${item.poster.replace(/\.webp$/i, "")}.webp`)
+          : (item.teams?.home?.badge && item.teams?.away?.badge
+            ? `${STREAMED_BASE_ORIGIN}/api/images/poster/${item.teams.home.badge.replace(/\.webp$/i, "")}/${item.teams.away.badge.replace(/\.webp$/i, "")}.webp`
+            : undefined);
+
+        const diffMinutes = (now - item.date) / (60 * 1000);
+        let status: "live" | "upcoming" | "finished" = "upcoming";
+        if (item.isLiveForced || (diffMinutes >= -15 && diffMinutes <= 180)) {
+          status = "live";
+        } else if (diffMinutes > 180) {
+          status = "finished";
+        }
+
+        // Fetch live streams for all sources in parallel if match is live or starting soon
+        const channels: {
+          name: string;
+          url: string;
+          quality?: string;
+          protocol?: string;
+          serverLocation?: string;
+          embedCode?: string;
+        }[] = [];
+
+        if (item.sources && Array.isArray(item.sources) && item.sources.length > 0) {
+          const streamFetches = await Promise.allSettled(
+            item.sources.map((s: any) =>
+              fetchStreamedWithCache(
+                `${STREAMED_BASE_ORIGIN}/api/stream/${encodeURIComponent(s.source)}/${encodeURIComponent(s.id)}`,
+                20000
+              ).catch(() => null)
+            )
+          );
+
+          const seenUrls = new Set<string>();
+          streamFetches.forEach((res) => {
+            if (res.status === "fulfilled" && Array.isArray(res.value)) {
+              res.value.forEach((str: any) => {
+                if (str.embedUrl && !seenUrls.has(str.embedUrl)) {
+                  seenUrls.add(str.embedUrl);
+                  const sourceUpper = (str.source || "Alpha").toUpperCase();
+                  const quality = str.hd ? "1080P HD" : "SD";
+                  const lang = str.language || "English";
+                  channels.push({
+                    name: `Stream #${str.streamNo || channels.length + 1}: ${lang} (${quality}) [${sourceUpper}]`,
+                    url: str.embedUrl,
+                    quality: quality,
+                    protocol: "EMBED",
+                    serverLocation: `${sourceUpper} Edge Relay`,
+                    embedCode: `<iframe src="${str.embedUrl}" width="100%" height="100%" frameborder="0" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture"></iframe>`,
+                  });
+                  resolvedStreamCount++;
+                }
+              });
+            }
+          });
+        }
+
+        return {
+          id: `streamed-${item.id}`,
+          streamedId: item.id,
+          team1: homeName,
+          team1Logo: homeBadge,
+          team2: awayName,
+          team2Logo: awayBadge,
+          category: item.category || "football",
+          tournament: `${(item.category || "sport").toUpperCase()} Live Broadcast`,
+          startTime: new Date(item.date).toISOString(),
+          status: status,
+          popular: item.popular,
+          poster: poster,
+          sources: item.sources || [],
+          channels: channels,
+          lastResolvedAt: Date.now(),
+        };
+      })
+    );
+
+    autoMatchesPool = processedList;
+    autoSyncStats.lastRunTime = Date.now();
+    autoSyncStats.totalMatches = processedList.length;
+    autoSyncStats.liveMatchesCount = processedList.filter((m) => m.status === "live").length;
+    autoSyncStats.totalStreamsResolved = resolvedStreamCount;
+
+    addAutoSyncLog(
+      `Automation completed: ${processedList.length} matches pre-warmed with ${resolvedStreamCount} active stream mirrors.`
+    );
+
+    return { count: processedList.length, streams: resolvedStreamCount };
+  } catch (err: any) {
+    addAutoSyncLog(`Automation error: ${err.message}`);
+    return { count: autoMatchesPool.length, streams: autoSyncStats.totalStreamsResolved };
+  } finally {
+    autoSyncStats.isRunning = false;
+  }
+}
+
+// Kick off automation immediately on startup, then every 90 seconds
+setTimeout(() => {
+  runStreamingAutomation().catch((e) => console.warn("Initial auto sync notice:", e.message));
+}, 2000);
+
+setInterval(() => {
+  if (autoSyncStats.active) {
+    runStreamingAutomation().catch((e) => console.warn("Periodic auto sync notice:", e.message));
+  }
+}, 90 * 1000);
+
+// Endpoint 1: GET /api/streamed/auto-matches
+app.get("/api/streamed/auto-matches", (_req, res) => {
+  setCors(res);
+  return res.json({
+    success: true,
+    lastRunTime: autoSyncStats.lastRunTime,
+    totalMatches: autoMatchesPool.length,
+    liveMatchesCount: autoSyncStats.liveMatchesCount,
+    matches: autoMatchesPool,
+  });
+});
+
+// Endpoint 2: GET /api/streamed/auto-status
+app.get("/api/streamed/auto-status", (_req, res) => {
+  setCors(res);
+  return res.json({
+    success: true,
+    stats: autoSyncStats,
+  });
+});
+
+// Endpoint 3: POST /api/streamed/auto-trigger
+app.post("/api/streamed/auto-trigger", async (_req, res) => {
+  setCors(res);
+  try {
+    const result = await runStreamingAutomation();
+    return res.json({
+      success: true,
+      message: "Automated streaming sync triggered successfully",
+      ...result,
+      stats: autoSyncStats,
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
+});
+
+
 
 // Periodic background logger / cache refresh
 setInterval(async () => {

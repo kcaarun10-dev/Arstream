@@ -22,7 +22,12 @@ import {
   ShieldCheck,
   Server,
   Activity,
-  Globe
+  Globe,
+  Cpu,
+  Database,
+  Terminal,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 import { db } from "../lib/firebase";
 import { collection, addDoc, doc, updateDoc, serverTimestamp } from "firebase/firestore";
@@ -69,10 +74,117 @@ export const StreamedSyncManager: React.FC<StreamedSyncManagerProps> = ({
   const [previewStream, setPreviewStream] = useState<Stream | null>(null);
   const [previewMatchTitle, setPreviewMatchTitle] = useState<string>("");
 
+  // Automated Background Engine State
+  const [engineStats, setEngineStats] = useState<{
+    active: boolean;
+    lastRunTime: number;
+    totalMatches: number;
+    liveMatchesCount: number;
+    totalStreamsResolved: number;
+    isRunning: boolean;
+    logs: string[];
+  } | null>(null);
+  const [triggeringAutomation, setTriggeringAutomation] = useState(false);
+  const [autoSavingToDb, setAutoSavingToDb] = useState(false);
+  const [showLogs, setShowLogs] = useState(false);
+
   // Import Status
   const [importingId, setImportingId] = useState<string | null>(null);
   const [bulkImporting, setBulkImporting] = useState<boolean>(false);
   const [notification, setNotification] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Fetch engine status
+  const fetchEngineStatus = async () => {
+    try {
+      const res = await fetch("/api/streamed/auto-status");
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.stats) {
+          setEngineStats(json.stats);
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to query auto-status:", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchEngineStatus();
+    const interval = setInterval(fetchEngineStatus, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleTriggerAutomation = async () => {
+    setTriggeringAutomation(true);
+    try {
+      const res = await fetch("/api/streamed/auto-trigger", { method: "POST" });
+      const json = await res.json();
+      if (json.success) {
+        setNotification({
+          type: "success",
+          text: `Automation run completed: ${json.count || 0} matches processed, ${json.streams || 0} stream mirrors resolved!`,
+        });
+        await fetchEngineStatus();
+        loadMatches();
+        if (onRefreshData) onRefreshData();
+      } else {
+        setNotification({ type: "error", text: json.error || "Automation run failed." });
+      }
+    } catch (err: any) {
+      setNotification({ type: "error", text: err.message || "Failed to trigger automation" });
+    } finally {
+      setTriggeringAutomation(false);
+    }
+  };
+
+  const handleAutoSavePoolToDatabase = async () => {
+    setAutoSavingToDb(true);
+    try {
+      const res = await fetch("/api/streamed/auto-matches");
+      if (!res.ok) throw new Error("Could not fetch automated stream pool");
+      const json = await res.json();
+      const pool: any[] = json.matches || [];
+      if (pool.length === 0) {
+        setNotification({ type: "error", text: "No automated matches in pool to save." });
+        setAutoSavingToDb(false);
+        return;
+      }
+
+      let savedCount = 0;
+      for (const m of pool) {
+        const titleKey = `${m.team1.toLowerCase().trim()} vs ${m.team2.toLowerCase().trim()}`;
+        if (!existingTitles.has(titleKey) && !existingStreamedIds.has(m.streamedId)) {
+          await addDoc(collection(db, "matches"), {
+            team1: m.team1,
+            team1Logo: m.team1Logo,
+            team2: m.team2,
+            team2Logo: m.team2Logo,
+            category: m.category,
+            tournament: m.tournament,
+            startTime: m.startTime,
+            status: m.status,
+            channels: m.channels || [],
+            sources: m.sources || [],
+            streamedId: m.streamedId,
+            poster: m.poster,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+          savedCount++;
+        }
+      }
+
+      setNotification({
+        type: "success",
+        text: `Successfully synced ${savedCount} automated matches & live streams to database!`,
+      });
+      if (onRefreshData) onRefreshData();
+    } catch (err: any) {
+      setNotification({ type: "error", text: err.message || "Failed to save pool to database" });
+    } finally {
+      setAutoSavingToDb(false);
+    }
+  };
 
   // Set of IDs already in Firestore
   const existingTitles = useMemo(() => {
@@ -285,6 +397,115 @@ export const StreamedSyncManager: React.FC<StreamedSyncManagerProps> = ({
             <span>{bulkImporting ? "Importing All..." : "Bulk Import All Viewable"}</span>
           </button>
         </div>
+      </div>
+
+      {/* 24/7 Automated Streaming Engine Status & Control Deck */}
+      <div className="p-5 rounded-2xl bg-[#0a101d] border border-cyan-500/30 shadow-[0_4px_25px_rgba(0,0,0,0.6)] space-y-4">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 border-b border-white/10 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-600/20 border border-cyan-400/40 flex items-center justify-center text-cyan-400 shrink-0">
+              <Cpu size={20} className={engineStats?.isRunning ? "animate-spin text-cyan-300" : ""} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  <span>24/7 Automated Streaming System</span>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                    AUTONOMOUS
+                  </span>
+                </h3>
+              </div>
+              <p className="text-xs text-white/50">
+                Automated continuous live match discovery, multi-source stream probe & mirror resolution every 90 seconds.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <button
+              onClick={handleTriggerAutomation}
+              disabled={triggeringAutomation || engineStats?.isRunning}
+              className="flex-1 md:flex-initial px-4 py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+            >
+              <Zap size={14} className={triggeringAutomation ? "animate-bounce" : ""} />
+              <span>{triggeringAutomation || engineStats?.isRunning ? "Automating..." : "Run Automation Now"}</span>
+            </button>
+
+            <button
+              onClick={handleAutoSavePoolToDatabase}
+              disabled={autoSavingToDb}
+              className="flex-1 md:flex-initial px-4 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+            >
+              <Database size={14} className={autoSavingToDb ? "animate-spin" : ""} />
+              <span>{autoSavingToDb ? "Syncing..." : "Auto-Save Pool to DB"}</span>
+            </button>
+
+            <button
+              onClick={() => setShowLogs(!showLogs)}
+              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
+              title="Toggle Live Automation Logs"
+            >
+              <Terminal size={15} />
+            </button>
+          </div>
+        </div>
+
+        {/* Live Metrics Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="p-3 rounded-xl bg-white/5 border border-white/5 flex flex-col">
+            <span className="text-[10px] uppercase tracking-wider text-white/40 font-mono">Stream Mirrors Ready</span>
+            <div className="flex items-baseline gap-1.5 mt-1">
+              <span className="text-xl font-black text-cyan-400">{engineStats?.totalStreamsResolved ?? "--"}</span>
+              <span className="text-[10px] text-cyan-500/80 font-mono">Live Endpoints</span>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-xl bg-white/5 border border-white/5 flex flex-col">
+            <span className="text-[10px] uppercase tracking-wider text-white/40 font-mono">Currently Live Matches</span>
+            <div className="flex items-baseline gap-1.5 mt-1">
+              <span className="text-xl font-black text-emerald-400">{engineStats?.liveMatchesCount ?? "--"}</span>
+              <span className="text-[10px] text-emerald-500/80 font-mono">Broadcasting</span>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-xl bg-white/5 border border-white/5 flex flex-col">
+            <span className="text-[10px] uppercase tracking-wider text-white/40 font-mono">Automated Ingest Pool</span>
+            <div className="flex items-baseline gap-1.5 mt-1">
+              <span className="text-xl font-black text-amber-400">{engineStats?.totalMatches ?? "--"}</span>
+              <span className="text-[10px] text-amber-500/80 font-mono">Events</span>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-xl bg-white/5 border border-white/5 flex flex-col">
+            <span className="text-[10px] uppercase tracking-wider text-white/40 font-mono">Engine Status</span>
+            <div className="flex items-baseline gap-1.5 mt-1">
+              <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                <span className={`w-2 h-2 rounded-full ${engineStats?.isRunning ? "bg-amber-400 animate-ping" : "bg-emerald-400"}`} />
+                {engineStats?.isRunning ? "Scanning Sources" : "Listening & Ready"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Live Engine Event Log Terminal */}
+        {showLogs && (
+          <div className="rounded-xl bg-black/80 border border-white/10 p-3 text-[11px] font-mono text-cyan-300 space-y-1 max-h-48 overflow-y-auto animate-fade-in">
+            <div className="flex items-center justify-between text-white/40 pb-1 border-b border-white/10 text-[10px]">
+              <span>AUTOMATION ENGINE EVENT STREAM</span>
+              <span>Updated live</span>
+            </div>
+            {engineStats?.logs && engineStats.logs.length > 0 ? (
+              engineStats.logs.map((log, idx) => (
+                <div key={idx} className="leading-relaxed opacity-90 hover:opacity-100 transition-opacity">
+                  {log}
+                </div>
+              ))
+            ) : (
+              <div className="text-white/40 italic py-2">No recent log entries.</div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Notification Toast */}

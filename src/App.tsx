@@ -265,7 +265,52 @@ function AppShell() {
       return [];
     }
   });
+  const [firestoreMatches, setFirestoreMatches] = useState<Match[]>([]);
+  const [autoStreamMatches, setAutoStreamMatches] = useState<Match[]>([]);
   const [showPlayer, setShowPlayer] = useState(false);
+
+  // Merge Firestore Matches with 24/7 Automated Stream Pool
+  useEffect(() => {
+    const merged: Match[] = [...firestoreMatches];
+    const seenIds = new Set(merged.map((m) => m.id));
+    const seenTitles = new Set(
+      merged.map((m) => `${m.team1.toLowerCase().trim()} vs ${m.team2.toLowerCase().trim()}`)
+    );
+
+    autoStreamMatches.forEach((autoM) => {
+      const titleKey = `${autoM.team1.toLowerCase().trim()} vs ${autoM.team2.toLowerCase().trim()}`;
+      const existingIndex = merged.findIndex(
+        (m) =>
+          m.id === autoM.id ||
+          (m.streamedId && m.streamedId === autoM.streamedId) ||
+          `${m.team1.toLowerCase().trim()} vs ${m.team2.toLowerCase().trim()}` === titleKey
+      );
+
+      if (existingIndex >= 0) {
+        // If Firestore match exists but has 0 active streams, automatically attach discovered streams!
+        if (!merged[existingIndex].channels || merged[existingIndex].channels.length === 0) {
+          merged[existingIndex] = {
+            ...merged[existingIndex],
+            channels: autoM.channels,
+            sources: autoM.sources || merged[existingIndex].sources,
+          };
+        }
+      } else if (!seenIds.has(autoM.id) && !seenTitles.has(titleKey)) {
+        merged.push(autoM);
+        seenIds.add(autoM.id);
+        seenTitles.add(titleKey);
+      }
+    });
+
+    if (merged.length > 0) {
+      setMatches(merged);
+      try {
+        localStorage.setItem("ar_matches_cache", JSON.stringify(merged));
+      } catch (e) {
+        console.warn("Local storage cache notice:", e);
+      }
+    }
+  }, [firestoreMatches, autoStreamMatches]);
 
   // Diagnostics & Quality
   const [activeServer, setActiveServer] = useState<StreamServer | null>(null);
@@ -309,38 +354,28 @@ function AppShell() {
     { id: "finished", label: "Recently Finished", count: finishedCount },
   ];
 
-  // Multi-tier fast match syncing
+  // Automated Match & Stream Ingestion
   useEffect(() => {
     let isMounted = true;
 
-    const processAndSetMatches = (data: Match[]) => {
-      if (!isMounted || !data) return;
-      setMatches(data);
-      try {
-        localStorage.setItem("ar_matches_cache", JSON.stringify(data));
-      } catch (e) {
-        console.warn("Could not cache matches to localStorage:", e);
-      }
-    };
-
-    // 1. Direct getDocs
+    // 1. Direct getDocs from Firestore
     getDocs(collection(db, "matches"))
       .then((snapshot) => {
         if (!isMounted) return;
         if (!snapshot.empty) {
           const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Match[];
-          processAndSetMatches(data);
+          setFirestoreMatches(data);
         }
       })
       .catch((err) => console.warn("Direct Firestore notice:", err));
 
-    // 2. Real-time Snapshot
+    // 2. Real-time Snapshot from Firestore
     const unsub = onSnapshot(collection(db, "matches"), {
       next: (snapshot: QuerySnapshot) => {
         if (!isMounted) return;
         if (!snapshot.empty) {
           const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Match[];
-          processAndSetMatches(data);
+          setFirestoreMatches(data);
         }
       },
       error: (error: FirestoreError) => {
@@ -348,88 +383,26 @@ function AppShell() {
       }
     });
 
-    // 3. Fallback Auto-Discovery
-    const fallbackTimer = setTimeout(async () => {
-      if (!isMounted) return;
-      setMatches((current) => {
-        if (current.length === 0) {
-          // A. Try Streamed.pk Live & Today's Matches First
-          fetchMatches({ scope: "live" })
-            .then(async (streamedLive) => {
-              if (!isMounted) return;
-              let apiList = streamedLive;
-              if (!apiList || apiList.length === 0) {
-                apiList = await fetchMatches({ scope: "all-today" });
-              }
-              if (Array.isArray(apiList) && apiList.length > 0) {
-                const converted = apiList.map((m) => convertAPIMatchToMatch(m));
-                processAndSetMatches(converted);
-                return;
-              }
-
-              // B. If Streamed.pk returns empty, fallback to CricHD
-              fetch("/api/sync-crichd")
-                .then((r) => r.json())
-                .then((res) => {
-                  if (!isMounted) return;
-                  const list = Array.isArray(res) ? res : res.matches;
-                  if (Array.isArray(list) && list.length > 0) {
-                    const autoMatches: Match[] = list.map((item: any, idx: number) => ({
-                      id: `crichd-${idx}-${Date.now()}`,
-                      team1: item.team1 || "Team 1",
-                      team1Logo: item.team1Logo || "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=200&q=80",
-                      team2: item.team2 || "Team 2",
-                      team2Logo: item.team2Logo || "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=200&q=80",
-                      category: item.category || "football",
-                      tournament: item.tournament || item.category?.toUpperCase() || "Live Sport",
-                      tournamentLogo: item.tournamentLogo,
-                      startTime: item.startTime || new Date().toISOString(),
-                      status: item.status || (item.isLive ? "live" : "upcoming"),
-                      channels: (item.channels && item.channels.length > 0) ? item.channels : [],
-                      createdAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 },
-                      updatedAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 },
-                    }));
-                    processAndSetMatches(autoMatches);
-                  }
-                })
-                .catch((e) => console.warn("Auto-sync fallback notice:", e));
-            })
-            .catch(() => {
-              // If Streamed throws, fallback to CricHD
-              fetch("/api/sync-crichd")
-                .then((r) => r.json())
-                .then((res) => {
-                  if (!isMounted) return;
-                  const list = Array.isArray(res) ? res : res.matches;
-                  if (Array.isArray(list) && list.length > 0) {
-                    const autoMatches: Match[] = list.map((item: any, idx: number) => ({
-                      id: `crichd-${idx}-${Date.now()}`,
-                      team1: item.team1 || "Team 1",
-                      team1Logo: item.team1Logo || "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=200&q=80",
-                      team2: item.team2 || "Team 2",
-                      team2Logo: item.team2Logo || "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=200&q=80",
-                      category: item.category || "football",
-                      tournament: item.tournament || item.category?.toUpperCase() || "Live Sport",
-                      tournamentLogo: item.tournamentLogo,
-                      startTime: item.startTime || new Date().toISOString(),
-                      status: item.status || (item.isLive ? "live" : "upcoming"),
-                      channels: (item.channels && item.channels.length > 0) ? item.channels : [],
-                      createdAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 },
-                      updatedAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 },
-                    }));
-                    processAndSetMatches(autoMatches);
-                  }
-                })
-                .catch((e) => console.warn("Auto-sync fallback notice:", e));
-            });
+    // 3. Automated Stream Pool Fetcher (every 45 seconds)
+    const fetchAutoStreams = async () => {
+      try {
+        const res = await fetch("/api/streamed/auto-matches");
+        if (!res.ok) return;
+        const json = await res.json();
+        if (isMounted && json.success && Array.isArray(json.matches)) {
+          setAutoStreamMatches(json.matches);
         }
-        return current;
-      });
-    }, 900);
+      } catch (err) {
+        console.warn("Auto-matches probe notice:", err);
+      }
+    };
+
+    fetchAutoStreams();
+    const autoInterval = setInterval(fetchAutoStreams, 45000);
 
     return () => {
       isMounted = false;
-      clearTimeout(fallbackTimer);
+      clearInterval(autoInterval);
       unsub();
     };
   }, []);
